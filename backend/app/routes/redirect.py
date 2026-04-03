@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import time 
 from typing import Final
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -35,16 +36,11 @@ async def redirect_short_url(
     else:
         target_url = cached_url
 
-    click_stmt = (
-        update(Url)
-        .where(Url.short_code == code)
-        .values(clicks=Url.clicks + 1)
-        .execution_options(synchronize_session=False)
-    )
-    result = await db.execute(click_stmt)
-    if result.rowcount == 0:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Short code not found.")
-
-    await db.commit()
+    await redis.xadd(
+        "click_stream",
+        {"short_code": code , "ts" : str(time.time())},
+        maxlen=100_000,
+        approximate=True
+        )
 
     return RedirectResponse(url=target_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
