@@ -22,8 +22,9 @@ settings = Settings()
 pool = ConnectionPool.from_url(
     settings.REDIS_URL,
     max_connections=20,
-    socket_timeout= 5,
-    health_check_interval=30
+    socket_timeout=5,
+    health_check_interval=30,
+    decode_responses=True,
 )
 
 redis_client: Redis = Redis(
